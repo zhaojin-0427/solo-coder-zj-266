@@ -5,10 +5,18 @@ import {
   LineChart, Line, ResponsiveContainer, PieChart, Pie, Cell, RadarChart,
   PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts'
+import { DataTable, EmptyState, StatusTag } from '../components'
 
 const COLORS = ['hotpink', 'rebeccapurple', 'darkcyan', 'mediumseagreen', 'darkorange', 'crimson', 'slateblue', 'chocolate']
 const MEMBER_COLORS = ['#9ca3af', '#6b7280', '#f59e0b', '#8b5cf6']
 const RISK_COLORS2 = ['#10b981', '#f59e0b', '#ef4444']
+
+const ChartWrapper = ({ title, children, empty, emptyIcon = '📊', emptyText = '暂无数据' }) => (
+  <div className="chart-container">
+    <h3 className="chart-title">{title}</h3>
+    {empty ? <EmptyState icon={emptyIcon} text={emptyText} /> : children}
+  </div>
+)
 
 export default function StatisticsPage() {
   const [tab, setTab] = useState('color')
@@ -51,6 +59,61 @@ export default function StatisticsPage() {
     平均满意度: d.avg_satisfaction * 20,
   }))
 
+  const lifecycleColumns = [
+    { key: 'name', title: '款式名称', render: (v) => <span className="fw-500">{v}</span> },
+    { key: 'appt_count', title: '预约次数' },
+    { key: 'avg_duration', title: '平均维持天数', render: (v) => `${v} 天` },
+    {
+      key: 'avg_satisfaction',
+      title: '平均满意度',
+      render: (v) => (
+        <>
+          <span className="stars">{renderStars(Math.round(v))}</span> ({v})
+        </>
+      )
+    },
+  ]
+
+  const efficiencyColumns = [
+    { key: 'name', title: '美甲师', render: (v) => <span className="fw-500">{v}</span> },
+    { key: 'works_count', title: '完成作品数' },
+    { key: 'appointments_count', title: '完成预约数' },
+    {
+      key: 'avg_satisfaction',
+      title: '平均满意度',
+      render: (v) => (
+        <>
+          <span className="stars">{renderStars(Math.round(v))}</span> ({v})
+        </>
+      )
+    },
+    { key: 'avg_duration', title: '平均维持天数', render: (v) => `${v} 天` },
+  ]
+
+  const tryonRankColumns = [
+    {
+      key: 'rank_index',
+      title: '排名',
+      render: (_, row, i) => (
+        <span className="rank-num" style={{
+          background: i === 0 ? '#fbbf24' : i === 1 ? '#9ca3af' : i === 2 ? '#d97706' : '#f3f4f6',
+          color: i < 3 ? 'white' : '#6b7280'
+        }}>{i + 1}</span>
+      )
+    },
+    { key: 'design_name', title: '款式', render: (v) => <span className="fw-500">{v}</span> },
+    { key: 'avg_similarity', title: '平均相似度', render: (v) => <span className="text-pink fw-600">{v}分</span> },
+    { key: 'appear_count', title: '出现次数' },
+    { key: 'view_count', title: '浏览数' },
+    { key: 'click_count', title: '点击数' },
+    { key: 'book_count', title: '预约数', render: (v) => <span className="text-pink-dark fw-600">{v}</span> },
+    {
+      key: 'composite_score',
+      title: '综合分',
+      render: (v) => <StatusTag label={v} cls="badge-completed" />
+    },
+  ]
+
   return (
     <div>
       <div className="page-header">
@@ -61,41 +124,40 @@ export default function StatisticsPage() {
       </div>
 
       {overview && (
-        <div className="grid grid-4 mb-24">
-          <div className="stat-card">
-            <h3>总顾客数</h3>
-            <div className="value">{overview.total_customers}</div>
+        <>
+          <div className="grid grid-4 mb-24">
+            <div className="stat-card">
+              <h3>总顾客数</h3>
+              <div className="value">{overview.total_customers}</div>
+            </div>
+            <div className="stat-card" style={{ borderLeftColor: 'rebeccapurple' }}>
+              <h3>款式总数</h3>
+              <div className="value">{overview.total_designs}</div>
+            </div>
+            <div className="stat-card" style={{ borderLeftColor: 'darkcyan' }}>
+              <h3>作品存档</h3>
+              <div className="value">{overview.total_works}</div>
+            </div>
+            <div className="stat-card" style={{ borderLeftColor: 'mediumseagreen' }}>
+              <h3>平均满意度</h3>
+              <div className="value">{overview.avg_satisfaction.toFixed(2)}</div>
+            </div>
           </div>
-          <div className="stat-card" style={{ borderLeftColor: 'rebeccapurple' }}>
-            <h3>款式总数</h3>
-            <div className="value">{overview.total_designs}</div>
+          <div className="grid grid-3 mb-24">
+            <div className="stat-card" style={{ borderLeftColor: '#ef4444' }}>
+              <h3>🔴 高风险顾客</h3>
+              <div className="value" style={{ color: '#ef4444' }}>{overview.high_risk_count || 0}</div>
+            </div>
+            <div className="stat-card" style={{ borderLeftColor: '#f59e0b' }}>
+              <h3>🟡 中风险顾客</h3>
+              <div className="value" style={{ color: '#f59e0b' }}>{overview.medium_risk_count || 0}</div>
+            </div>
+            <div className="stat-card" style={{ borderLeftColor: '#10b981' }}>
+              <h3>🟢 低风险顾客</h3>
+              <div className="value" style={{ color: '#10b981' }}>{overview.low_risk_count || 0}</div>
+            </div>
           </div>
-          <div className="stat-card" style={{ borderLeftColor: 'darkcyan' }}>
-            <h3>作品存档</h3>
-            <div className="value">{overview.total_works}</div>
-          </div>
-          <div className="stat-card" style={{ borderLeftColor: 'mediumseagreen' }}>
-            <h3>平均满意度</h3>
-            <div className="value">{overview.avg_satisfaction.toFixed(2)}</div>
-          </div>
-        </div>
-      )}
-
-      {overview && (
-        <div className="grid grid-3 mb-24">
-          <div className="stat-card" style={{ borderLeftColor: '#ef4444' }}>
-            <h3>🔴 高风险顾客</h3>
-            <div className="value" style={{ color: '#ef4444' }}>{overview.high_risk_count || 0}</div>
-          </div>
-          <div className="stat-card" style={{ borderLeftColor: '#f59e0b' }}>
-            <h3>🟡 中风险顾客</h3>
-            <div className="value" style={{ color: '#f59e0b' }}>{overview.medium_risk_count || 0}</div>
-          </div>
-          <div className="stat-card" style={{ borderLeftColor: '#10b981' }}>
-            <h3>🟢 低风险顾客</h3>
-            <div className="value" style={{ color: '#10b981' }}>{overview.low_risk_count || 0}</div>
-          </div>
-        </div>
+        </>
       )}
 
       <div className="tabs mb-24">
@@ -113,27 +175,21 @@ export default function StatisticsPage() {
 
       {tab === 'color' && (
         <div className="grid grid-2">
-          <div className="chart-container">
-            <h3 className="chart-title">🔥 热门色系排行 TOP 10</h3>
-            {colorRanking.length > 0 ? (
-              <ul className="ranking-list">
-                {colorRanking.slice(0, 10).map((c, i) => (
-                  <li key={i} className="ranking-item">
-                    <span className="rank-num">{i + 1}</span>
-                    <span className="rank-name">{c.color}</span>
-                    <div className="rank-bar-wrap">
-                      <div className="rank-bar" style={{ width: `${(c.count / maxColor) * 100}%` }}></div>
-                    </div>
-                    <span className="rank-count">{c.count}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="empty-state"><div className="icon">📊</div><p>暂无数据</p></div>
-            )}
-          </div>
-          <div className="chart-container">
-            <h3 className="chart-title">色系分布</h3>
+          <ChartWrapper title="🔥 热门色系排行 TOP 10" empty={colorRanking.length === 0} emptyIcon="📊">
+            <ul className="ranking-list">
+              {colorRanking.slice(0, 10).map((c, i) => (
+                <li key={i} className="ranking-item">
+                  <span className="rank-num">{i + 1}</span>
+                  <span className="rank-name">{c.color}</span>
+                  <div className="rank-bar-wrap">
+                    <div className="rank-bar" style={{ width: `${(c.count / maxColor) * 100}%` }}></div>
+                  </div>
+                  <span className="rank-count">{c.count}</span>
+                </li>
+              ))}
+            </ul>
+          </ChartWrapper>
+          <ChartWrapper title="色系分布">
             <ResponsiveContainer width="100%" height={360}>
               <PieChart>
                 <Pie
@@ -152,14 +208,13 @@ export default function StatisticsPage() {
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
-          </div>
+          </ChartWrapper>
         </div>
       )}
 
       {tab === 'lifecycle' && (
         <div>
-          <div className="chart-container mb-24">
-            <h3 className="chart-title">📊 款式表现对比（预约次数、维持天数、满意度）</h3>
+          <ChartWrapper title="📊 款式表现对比（预约次数、维持天数、满意度）">
             <ResponsiveContainer width="100%" height={380}>
               <BarChart data={lifecycleChart}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -172,39 +227,22 @@ export default function StatisticsPage() {
                 <Bar dataKey="平均满意度" fill="mediumseagreen" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </ChartWrapper>
           <div className="card">
             <h3 className="chart-title">款式详细列表</h3>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>款式名称</th>
-                  <th>预约次数</th>
-                  <th>平均维持天数</th>
-                  <th>平均满意度</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lifecycle.length > 0 ? lifecycle.map(d => (
-                  <tr key={d.id}>
-                    <td className="fw-500">{d.name}</td>
-                    <td>{d.appt_count}</td>
-                    <td>{d.avg_duration} 天</td>
-                    <td><span className="stars">{renderStars(Math.round(d.avg_satisfaction))}</span> ({d.avg_satisfaction})</td>
-                  </tr>
-                )) : (
-                  <tr><td colSpan="4"><div className="empty-state"><div className="icon">📊</div><p>暂无数据</p></div></td></tr>
-                )}
-              </tbody>
-            </table>
+            <DataTable
+              columns={lifecycleColumns}
+              data={lifecycle}
+              emptyIcon="📊"
+              emptyText="暂无数据"
+            />
           </div>
         </div>
       )}
 
       {tab === 'trend' && trend && (
         <div className="grid grid-2">
-          <div className="chart-container">
-            <h3 className="chart-title">📈 色系偏好变迁（近6个月）</h3>
+          <ChartWrapper title="📈 色系偏好变迁（近6个月）">
             <ResponsiveContainer width="100%" height={360}>
               <LineChart data={trend.months.map((m, i) => {
                 const row = { month: m }
@@ -221,9 +259,8 @@ export default function StatisticsPage() {
                 ))}
               </LineChart>
             </ResponsiveContainer>
-          </div>
-          <div className="chart-container">
-            <h3 className="chart-title">🎨 风格偏好变迁（近6个月）</h3>
+          </ChartWrapper>
+          <ChartWrapper title="🎨 风格偏好变迁（近6个月）">
             <ResponsiveContainer width="100%" height={360}>
               <LineChart data={trend.months.map((m, i) => {
                 const row = { month: m }
@@ -240,9 +277,8 @@ export default function StatisticsPage() {
                 ))}
               </LineChart>
             </ResponsiveContainer>
-          </div>
-          <div className="chart-container" style={{ gridColumn: '1 / -1' }}>
-            <h3 className="chart-title">📅 月度作品完成趋势</h3>
+          </ChartWrapper>
+          <ChartWrapper title="📅 月度作品完成趋势" empty={!trend.total_monthly || trend.total_monthly.length === 0}>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={trend.total_monthly.map(m => ({
                 月份: new Date(m.month).toLocaleDateString('zh-CN', { month: 'numeric' }) + '月',
@@ -255,14 +291,13 @@ export default function StatisticsPage() {
                 <Bar dataKey="作品数" fill="hotpink" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </ChartWrapper>
         </div>
       )}
 
       {tab === 'efficiency' && (
         <div className="grid grid-2">
-          <div className="chart-container">
-            <h3 className="chart-title">👩‍💼 美甲师作品数量对比</h3>
+          <ChartWrapper title="👩‍💼 美甲师作品数量对比" empty={efficiency.length === 0}>
             <ResponsiveContainer width="100%" height={360}>
               <BarChart data={efficiency} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
@@ -272,9 +307,8 @@ export default function StatisticsPage() {
                 <Bar dataKey="works_count" name="完成作品数" fill="hotpink" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
-          <div className="chart-container">
-            <h3 className="chart-title">⭐ 美甲师综合表现雷达图</h3>
+          </ChartWrapper>
+          <ChartWrapper title="⭐ 美甲师综合表现雷达图" empty={efficiency.length === 0}>
             <ResponsiveContainer width="100%" height={360}>
               <RadarChart data={efficiency.map(t => ({
                 subject: t.name,
@@ -291,88 +325,59 @@ export default function StatisticsPage() {
                 <Legend />
               </RadarChart>
             </ResponsiveContainer>
-          </div>
+          </ChartWrapper>
           <div className="card" style={{ gridColumn: '1 / -1' }}>
             <h3 className="chart-title">美甲师产出效率明细（近3个月）</h3>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>美甲师</th>
-                  <th>完成作品数</th>
-                  <th>完成预约数</th>
-                  <th>平均满意度</th>
-                  <th>平均维持天数</th>
-                </tr>
-              </thead>
-              <tbody>
-                {efficiency.length > 0 ? efficiency.map(t => (
-                  <tr key={t.id}>
-                    <td className="fw-500">{t.name}</td>
-                    <td>{t.works_count}</td>
-                    <td>{t.appointments_count}</td>
-                    <td><span className="stars">{renderStars(Math.round(t.avg_satisfaction))}</span> ({t.avg_satisfaction})</td>
-                    <td>{t.avg_duration} 天</td>
-                  </tr>
-                )) : (
-                  <tr><td colSpan="5"><div className="empty-state"><div className="icon">📊</div><p>暂无数据</p></div></td></tr>
-                )}
-              </tbody>
-            </table>
+            <DataTable
+              columns={efficiencyColumns}
+              data={efficiency}
+              emptyIcon="📊"
+              emptyText="暂无数据"
+            />
           </div>
         </div>
       )}
 
       {tab === 'member' && (
         <div className="grid grid-2">
-          <div className="chart-container">
-            <h3 className="chart-title">👑 会员等级分布</h3>
-            {memberDist.length > 0 ? (
-              <ResponsiveContainer width="100%" height={360}>
-                <PieChart>
-                  <Pie
-                    data={memberDist}
-                    dataKey="count"
-                    nameKey="level_name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={120}
-                    label={({ level_name, percent }) => `${level_name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {memberDist.map((_, i) => (
-                      <Cell key={i} fill={MEMBER_COLORS[i % MEMBER_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="empty-state"><div className="icon">👑</div><p>暂无数据</p></div>
-            )}
-          </div>
-          <div className="chart-container">
-            <h3 className="chart-title">📊 各等级会员数量对比</h3>
-            {memberDist.length > 0 ? (
-              <ResponsiveContainer width="100%" height={360}>
-                <BarChart data={memberDist}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="level_name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" name="会员人数" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="empty-state"><div className="icon">📊</div><p>暂无数据</p></div>
-            )}
-          </div>
+          <ChartWrapper title="👑 会员等级分布" empty={memberDist.length === 0} emptyIcon="👑">
+            <ResponsiveContainer width="100%" height={360}>
+              <PieChart>
+                <Pie
+                  data={memberDist}
+                  dataKey="count"
+                  nameKey="level_name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={120}
+                  label={({ level_name, percent }) => `${level_name} ${(percent * 100).toFixed(0)}%`}
+                >
+                  {memberDist.map((_, i) => (
+                    <Cell key={i} fill={MEMBER_COLORS[i % MEMBER_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </ChartWrapper>
+          <ChartWrapper title="📊 各等级会员数量对比" empty={memberDist.length === 0}>
+            <ResponsiveContainer width="100%" height={360}>
+              <BarChart data={memberDist}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="level_name" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" name="会员人数" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartWrapper>
         </div>
       )}
 
       {tab === 'repurchase' && repurchaseData && (
         <div className="grid grid-2">
-          <div className="chart-container">
-            <h3 className="chart-title">🔄 平均复购间隔</h3>
+          <ChartWrapper title="🔄 平均复购间隔">
             <div className="text-center" style={{ padding: '40px 0' }}>
               <div className="fs-14 text-gray mb-8">顾客平均复购间隔</div>
               <div className="fs-48 fw-700" style={{ color: '#ec4899' }}>
@@ -380,30 +385,27 @@ export default function StatisticsPage() {
                 <span className="fs-20" style={{ marginLeft: 8 }}>天</span>
               </div>
             </div>
-          </div>
-          <div className="chart-container">
-            <h3 className="chart-title">📊 复购间隔分布</h3>
-            {repurchaseData.distribution && repurchaseData.distribution.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={repurchaseData.distribution}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="label" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" name="顾客数" fill="hotpink" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="empty-state"><div className="icon">📊</div><p>暂无数据</p></div>
-            )}
-          </div>
+          </ChartWrapper>
+          <ChartWrapper
+            title="📊 复购间隔分布"
+            empty={!repurchaseData.distribution || repurchaseData.distribution.length === 0}
+          >
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={repurchaseData.distribution}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="label" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" name="顾客数" fill="hotpink" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartWrapper>
         </div>
       )}
 
       {tab === 'churn' && churnTrend && (
         <div>
-          <div className="chart-container mb-24">
-            <h3 className="chart-title">⚠️ 流失风险趋势（近6个月）</h3>
+          <ChartWrapper title="⚠️ 流失风险趋势（近6个月）">
             <ResponsiveContainer width="100%" height={380}>
               <LineChart data={churnTrend.months.map((m, i) => {
                 const row = { month: m }
@@ -420,7 +422,7 @@ export default function StatisticsPage() {
                 ))}
               </LineChart>
             </ResponsiveContainer>
-          </div>
+          </ChartWrapper>
           <div className="chart-container">
             <h3 className="chart-title">💡 说明</h3>
             <div className="fs-14 text-gray lh-20">
@@ -454,27 +456,26 @@ export default function StatisticsPage() {
           </div>
 
           <div className="grid grid-2">
-            <div className="chart-container">
-              <h3 className="chart-title">📈 试甲转化趋势（近6个月）</h3>
-              {tryonTrend && tryonTrend.length > 0 ? (
-                <ResponsiveContainer width="100%" height={320}>
-                  <LineChart data={tryonTrend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis yAxisId="left" />
-                    <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
-                    <Tooltip />
-                    <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="tasks" name="试甲任务数" stroke="#ec4899" strokeWidth={2} />
-                    <Line yAxisId="left" type="monotone" dataKey="converted" name="转化预约数" stroke="#10b981" strokeWidth={2} />
-                    <Line yAxisId="left" type="monotone" dataKey="clicks" name="款式点击数" stroke="#8b5cf6" strokeWidth={2} />
-                    <Line yAxisId="right" type="monotone" dataKey="conversion_rate" name="转化率(%)" stroke="#06b6d4" strokeWidth={2} strokeDasharray="5 5" />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="empty-state"><div className="icon">📊</div><p>暂无试甲数据</p></div>
-              )}
-            </div>
+            <ChartWrapper
+              title="📈 试甲转化趋势（近6个月）"
+              empty={!tryonTrend || tryonTrend.length === 0}
+              emptyText="暂无试甲数据"
+            >
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart data={tryonTrend}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis yAxisId="left" />
+                  <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
+                  <Tooltip />
+                  <Legend />
+                  <Line yAxisId="left" type="monotone" dataKey="tasks" name="试甲任务数" stroke="#ec4899" strokeWidth={2} />
+                  <Line yAxisId="left" type="monotone" dataKey="converted" name="转化预约数" stroke="#10b981" strokeWidth={2} />
+                  <Line yAxisId="left" type="monotone" dataKey="clicks" name="款式点击数" stroke="#8b5cf6" strokeWidth={2} />
+                  <Line yAxisId="right" type="monotone" dataKey="conversion_rate" name="转化率(%)" stroke="#06b6d4" strokeWidth={2} strokeDasharray="5 5" />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartWrapper>
             <div className="chart-container">
               <h3 className="chart-title">💡 试甲转化说明</h3>
               <div className="fs-14 text-gray lh-20">
@@ -490,123 +491,96 @@ export default function StatisticsPage() {
 
       {tab === 'tryrank' && (
         <div className="grid grid-2">
-          <div className="chart-container">
-            <h3 className="chart-title">🏆 相似推荐款式综合排行 TOP 10</h3>
-            {tryonRanking && tryonRanking.length > 0 ? (
-              <ResponsiveContainer width="100%" height={380}>
-                <BarChart data={tryonRanking.slice(0, 10).map(r => ({
-                  name: r.design_name.length > 8 ? r.design_name.slice(0, 8) + '...' : r.design_name,
-                  综合得分: r.composite_score,
-                  平均相似度: r.avg_similarity,
-                }))} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis type="category" dataKey="name" width={100} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="综合得分" fill="#ec4899" radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="平均相似度" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="empty-state"><div className="icon">🏆</div><p>暂无排行数据</p></div>
-            )}
-          </div>
+          <ChartWrapper
+            title="🏆 相似推荐款式综合排行 TOP 10"
+            empty={!tryonRanking || tryonRanking.length === 0}
+            emptyIcon="🏆"
+            emptyText="暂无排行数据"
+          >
+            <ResponsiveContainer width="100%" height={380}>
+              <BarChart data={tryonRanking.slice(0, 10).map(r => ({
+                name: r.design_name.length > 8 ? r.design_name.slice(0, 8) + '...' : r.design_name,
+                综合得分: r.composite_score,
+                平均相似度: r.avg_similarity,
+              }))} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis type="category" dataKey="name" width={100} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="综合得分" fill="#ec4899" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="平均相似度" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartWrapper>
           <div className="card">
             <h3 className="chart-title">📋 相似款推荐详细排行</h3>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>排名</th>
-                  <th>款式</th>
-                  <th>平均相似度</th>
-                  <th>出现次数</th>
-                  <th>浏览数</th>
-                  <th>点击数</th>
-                  <th>预约数</th>
-                  <th>综合分</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tryonRanking && tryonRanking.length > 0 ? tryonRanking.map((r, i) => (
-                  <tr key={r.design_id}>
-                    <td><span className="rank-num" style={{
-                      background: i === 0 ? '#fbbf24' : i === 1 ? '#9ca3af' : i === 2 ? '#d97706' : '#f3f4f6',
-                      color: i < 3 ? 'white' : '#6b7280'
-                    }}>{i + 1}</span></td>
-                    <td className="fw-500">{r.design_name}</td>
-                    <td><span className="text-pink fw-600">{r.avg_similarity}分</span></td>
-                    <td>{r.appear_count}</td>
-                    <td>{r.view_count}</td>
-                    <td>{r.click_count}</td>
-                    <td><span className="text-pink-dark fw-600">{r.book_count}</span></td>
-                    <td><span className="badge badge-completed">{r.composite_score}</span></td>
-                  </tr>
-                )) : (
-                  <tr><td colSpan="8"><div className="empty-state"><div className="icon">🏆</div><p>暂无排行数据</p></div></td></tr>
-                )}
-              </tbody>
-            </table>
+            <DataTable
+              columns={tryonRankColumns}
+              data={tryonRanking}
+              emptyIcon="🏆"
+              emptyText="暂无排行数据"
+            />
           </div>
         </div>
       )}
 
       {tab === 'trypref' && (
         <div className="grid grid-2">
-          <div className="chart-container">
-            <h3 className="chart-title">👐 不同肤色的色系偏好分布</h3>
-            {skinTonePref && skinTonePref.length > 0 ? (
-              <div>
-                {skinTonePref.map((tone, i) => (
-                  <div key={i} className="mb-16">
-                    <div className="flex justify-between items-center mb-6">
-                      <span className="fw-600">{tone.skin_tone_name}</span>
-                      <span className="text-gray fs-13">样本数：{tone.count}</span>
-                    </div>
-                    <div className="flex gap-4 flex-wrap">
-                      {tone.top_colors?.map((c, j) => (
-                        <span key={j} className="tag-chip" style={{ background: COLORS[j % COLORS.length] }}>
-                          {c.color}（{c.count}）
-                        </span>
-                      ))}
-                      {(!tone.top_colors || tone.top_colors.length === 0) && (
-                        <span className="text-lightgray fs-13">暂无偏好数据</span>
-                      )}
-                    </div>
+          <ChartWrapper
+            title="👐 不同肤色的色系偏好分布"
+            empty={!skinTonePref || skinTonePref.length === 0}
+            emptyIcon="👐"
+            emptyText="暂无肤色偏好数据"
+          >
+            <div>
+              {skinTonePref.map((tone, i) => (
+                <div key={i} className="mb-16">
+                  <div className="flex justify-between items-center mb-6">
+                    <span className="fw-600">{tone.skin_tone_name}</span>
+                    <span className="text-gray fs-13">样本数：{tone.count}</span>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state"><div className="icon">👐</div><p>暂无肤色偏好数据</p></div>
-            )}
-          </div>
-          <div className="chart-container">
-            <h3 className="chart-title">✋ 不同手型的甲型偏好分布</h3>
-            {handShapePref && handShapePref.length > 0 ? (
-              <div>
-                {handShapePref.map((shape, i) => (
-                  <div key={i} className="mb-16">
-                    <div className="flex justify-between items-center mb-6">
-                      <span className="fw-600">{shape.hand_shape_name}</span>
-                      <span className="text-gray fs-13">样本数：{shape.count}</span>
-                    </div>
-                    <div className="flex gap-4 flex-wrap">
-                      {shape.top_shapes?.map((s, j) => (
-                        <span key={j} className="tag-chip" style={{ background: COLORS[(j + 3) % COLORS.length] }}>
-                          {s.shape}（{s.count}）
-                        </span>
-                      ))}
-                      {(!shape.top_shapes || shape.top_shapes.length === 0) && (
-                        <span className="text-lightgray fs-13">暂无偏好数据</span>
-                      )}
-                    </div>
+                  <div className="flex gap-4 flex-wrap">
+                    {tone.top_colors?.map((c, j) => (
+                      <span key={j} className="tag-chip" style={{ background: COLORS[j % COLORS.length] }}>
+                        {c.color}（{c.count}）
+                      </span>
+                    ))}
+                    {(!tone.top_colors || tone.top_colors.length === 0) && (
+                      <span className="text-lightgray fs-13">暂无偏好数据</span>
+                    )}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state"><div className="icon">✋</div><p>暂无手型偏好数据</p></div>
-            )}
-          </div>
+                </div>
+              ))}
+            </div>
+          </ChartWrapper>
+          <ChartWrapper
+            title="✋ 不同手型的甲型偏好分布"
+            empty={!handShapePref || handShapePref.length === 0}
+            emptyIcon="✋"
+            emptyText="暂无手型偏好数据"
+          >
+            <div>
+              {handShapePref.map((shape, i) => (
+                <div key={i} className="mb-16">
+                  <div className="flex justify-between items-center mb-6">
+                    <span className="fw-600">{shape.hand_shape_name}</span>
+                    <span className="text-gray fs-13">样本数：{shape.count}</span>
+                  </div>
+                  <div className="flex gap-4 flex-wrap">
+                    {shape.top_shapes?.map((s, j) => (
+                      <span key={j} className="tag-chip" style={{ background: COLORS[(j + 3) % COLORS.length] }}>
+                        {s.shape}（{s.count}）
+                      </span>
+                    ))}
+                    {(!shape.top_shapes || shape.top_shapes.length === 0) && (
+                      <span className="text-lightgray fs-13">暂无偏好数据</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ChartWrapper>
           <div className="card" style={{ gridColumn: '1 / -1' }}>
             <h3 className="chart-title">📊 肤色/手型人群样本分布</h3>
             <div className="grid grid-2">

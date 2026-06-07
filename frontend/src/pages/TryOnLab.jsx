@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
-  tryOnAPI, customersAPI, worksAPI, designsAPI, appointmentsAPI,
+  tryOnAPI, customersAPI, worksAPI, designsAPI, appointmentsAPI, techniciansAPI,
   OCCASIONS, NAIL_SHAPES, COLOR_PALETTE, BUDGETS, getOccasionLabel,
   getShapeLabel, getBudgetLabel, getSkinToneLabel, getHandShapeLabel,
   getNailLengthLabel, getTryOnStatusMeta, getStatusMeta, renderStars
@@ -9,6 +9,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts'
+import { DataTable, FilterBar, ModalForm, StatusTag, EmptyState, useToast } from '../components'
+import { useApiRequest } from '../hooks'
 
 const SCORE_COLORS = ['#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#6366f1']
 
@@ -24,7 +26,6 @@ export default function TryOnLab() {
   const [targetOccasion, setTargetOccasion] = useState('')
   const [budget, setBudget] = useState('')
   const [preferredColors, setPreferredColors] = useState([])
-  const [submitting, setSubmitting] = useState(false)
 
   const [taskList, setTaskList] = useState([])
   const [selectedTask, setSelectedTask] = useState(null)
@@ -34,7 +35,7 @@ export default function TryOnLab() {
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
   const [appointmentDesign, setAppointmentDesign] = useState(null)
   const [appointmentForm, setAppointmentForm] = useState({
-    appointment_date: '', appointment_time: '14:00', technician_id: '', notes: ''
+    appointment_date: '', appointment_time: '14:00', technician: '', notes: ''
   })
   const [technicians, setTechnicians] = useState([])
 
@@ -43,12 +44,13 @@ export default function TryOnLab() {
   const [filterSimMin, setFilterSimMin] = useState('')
   const [filterSimMax, setFilterSimMax] = useState('')
 
+  const toast = useToast()
+  const { loading: submitting, request: submitRequest } = useApiRequest()
+
   useEffect(() => {
     loadCustomers()
     loadTaskList()
-    import('../utils/api.js').then(m => {
-      m.techniciansAPI.list().then(r => setTechnicians(r.data.results || r.data))
-    }).catch(() => {})
+    techniciansAPI.list().then(r => setTechnicians(r.data.results || r.data))
   }, [])
 
   useEffect(() => {
@@ -101,40 +103,37 @@ export default function TryOnLab() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!selectedCustomer) {
-      alert('请先选择顾客')
+      toast.warning('请先选择顾客')
       return
     }
     if (!photoFile && !useReferenceWork) {
-      alert('请上传手部照片或选择历史作品')
+      toast.warning('请上传手部照片或选择历史作品')
       return
     }
-    setSubmitting(true)
-    try {
-      const fd = new FormData()
-      fd.append('customer', selectedCustomer.id)
-      fd.append('target_occasion', targetOccasion)
-      fd.append('budget', budget)
-      fd.append('preferred_colors', preferredColors.join(', '))
-      if (photoFile && !useReferenceWork) {
-        fd.append('photo', photoFile)
-      }
-      if (useReferenceWork && selectedWork) {
-        fd.append('reference_work', selectedWork.id)
-      }
-      const res = await tryOnAPI.create(fd)
-      setSubmitting(false)
-      alert('试甲任务创建成功，正在分析...')
+    const fd = new FormData()
+    fd.append('customer', selectedCustomer.id)
+    fd.append('target_occasion', targetOccasion)
+    fd.append('budget', budget)
+    fd.append('preferred_colors', preferredColors.join(', '))
+    if (photoFile && !useReferenceWork) {
+      fd.append('photo', photoFile)
+    }
+    if (useReferenceWork && selectedWork) {
+      fd.append('reference_work', selectedWork.id)
+    }
+    const result = await submitRequest(tryOnAPI.create(fd), {
+      showSuccessToast: true,
+      successMessage: '试甲任务创建成功，正在分析...',
+    })
+    if (result.success) {
       setTimeout(() => {
-        tryOnAPI.get(res.data.id).then(r => {
+        tryOnAPI.get(result.data.id).then(r => {
           setSelectedTask(r.data)
           setRecommendations(r.data.similar_results || [])
           setTab('result')
         })
         loadTaskList()
       }, 500)
-    } catch (err) {
-      setSubmitting(false)
-      alert('创建失败：' + (err.response?.data?.detail || err.message))
     }
   }
 
@@ -157,7 +156,7 @@ export default function TryOnLab() {
         return prev.filter(p => p.id !== rec.id)
       }
       if (prev.length >= 3) {
-        alert('最多对比3个款式')
+        toast.warning('最多对比3个款式')
         return prev
       }
       handleLogClick(rec.design_id, 'compare')
@@ -173,7 +172,7 @@ export default function TryOnLab() {
     setAppointmentForm({
       appointment_date: tomorrow.toISOString().slice(0, 10),
       appointment_time: '14:00',
-      technician_id: technicians[0]?.id || '',
+      technician: technicians[0]?.id || '',
       notes: `[试甲转化] 来自试甲任务#${selectedTask?.id}，相似度评分：${rec.similarity_score}`
     })
     setShowAppointmentModal(true)
@@ -181,19 +180,22 @@ export default function TryOnLab() {
 
   const handleCreateAppointment = async () => {
     if (!selectedTask) return
-    try {
-      const res = await tryOnAPI.createAppointmentDraft(selectedTask.id, {
-        design_id: appointmentDesign?.design_id
-      })
+    const action = tryOnAPI.createAppointmentDraft(selectedTask.id, {
+      design_id: appointmentDesign?.design_id
+    })
+    const result = await submitRequest(action, {
+      successMessage: '预约草稿创建成功',
+    })
+    if (result.success) {
       if (appointmentForm.appointment_date) {
-        await appointmentsAPI.partialUpdate(res.data.id, appointmentForm)
+        await submitRequest(
+          appointmentsAPI.partialUpdate(result.data.id, appointmentForm),
+          { showErrorToast: true }
+        )
       }
       setShowAppointmentModal(false)
-      alert('预约草稿创建成功！')
       loadTaskList()
       tryOnAPI.get(selectedTask.id).then(r => setSelectedTask(r.data))
-    } catch (err) {
-      alert('创建失败：' + (err.response?.data?.error || err.message))
     }
   }
 
@@ -205,7 +207,7 @@ export default function TryOnLab() {
       <div className="card mb-20">
         <div className="flex justify-between items-center mb-14">
           <h3 className="fs-16 fw-600">🔍 视觉识别结果</h3>
-          <span className={`badge ${statusMeta.cls}`}>{statusMeta.label}</span>
+          <StatusTag label={statusMeta.label} cls={statusMeta.cls} />
         </div>
         <div className="grid grid-4 mb-14">
           <div className="bg-lightpink pad-8 radius-6">
@@ -242,10 +244,7 @@ export default function TryOnLab() {
     if (!recommendations || recommendations.length === 0) {
       return (
         <div className="card">
-          <div className="empty-state">
-            <div className="icon">💅</div>
-            <p>暂无推荐结果</p>
-          </div>
+          <EmptyState icon="💅" text="暂无推荐结果" />
         </div>
       )
     }
@@ -334,63 +333,59 @@ export default function TryOnLab() {
       预算: rec.budget_score || 0,
     }))
     return (
-      <div className="modal-overlay" onClick={() => setShowCompare(false)}>
-        <div className="modal" style={{ maxWidth: 900 }} onClick={e => e.stopPropagation()}>
-          <div className="modal-header">
-            <h3>📊 款式对比分析</h3>
-            <button className="modal-close" onClick={() => setShowCompare(false)}>×</button>
-          </div>
-          <div className="modal-body">
-            <div className="chart-container mb-20">
-              <h4 className="chart-title">各维度匹配度对比</h4>
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip />
-                  <Legend />
-                  {['甲型', '色系', '装饰', '风格', '场合', '预算'].map((k, i) => (
-                    <Bar key={k} dataKey={k} fill={SCORE_COLORS[i % SCORE_COLORS.length]} radius={[4, 4, 0, 0]} />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="grid" style={{ gridTemplateColumns: `repeat(${compareItems.length}, 1fr)` }}>
-              {compareItems.map(rec => {
-                const d = rec.design_data || {}
-                return (
-                  <div key={rec.id} className="card">
-                    <div className="design-image" style={{ borderRadius: 10, marginBottom: 12 }}>
-                      {d.image ? <img src={d.image} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 }} alt={d.name} /> : '💅'}
-                    </div>
-                    <h4 className="fs-15 fw-600 mb-6">{d.name}</h4>
-                    <div className="fs-13 text-gray mb-8">{d.color_system} · {getShapeLabel(d.nail_shape)}</div>
-                    <ul className="info-list">
-                      <li><span className="label">综合相似度</span><span className="val text-pink fw-700">{rec.similarity_score}分</span></li>
-                      <li><span className="label">甲型匹配</span><span className="val">{rec.shape_score}分</span></li>
-                      <li><span className="label">色系匹配</span><span className="val">{rec.color_score}分</span></li>
-                      <li><span className="label">装饰匹配</span><span className="val">{rec.decoration_score}分</span></li>
-                      <li><span className="label">风格匹配</span><span className="val">{rec.style_score}分</span></li>
-                      <li><span className="label">场合匹配</span><span className="val">{rec.occasion_score}分</span></li>
-                      <li><span className="label">预算匹配</span><span className="val">{rec.budget_score}分</span></li>
-                      <li><span className="label">参考价格</span><span className="val text-pink fw-600">¥{d.price}</span></li>
-                    </ul>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-          <div className="modal-footer">
-            <button className="btn btn-secondary" onClick={() => setShowCompare(false)}>关闭</button>
-            <button className="btn btn-primary" onClick={() => {
-              const best = [...compareItems].sort((a, b) => b.similarity_score - a.similarity_score)[0]
-              setShowCompare(false)
-              openAppointment(best)
-            }}>用最高分款式生成预约</button>
-          </div>
+      <ModalForm
+        open={showCompare}
+        onClose={() => setShowCompare(false)}
+        title="📊 款式对比分析"
+        maxWidth={900}
+        submitText="用最高分款式生成预约"
+        onSubmit={(e) => {
+          e.preventDefault()
+          const best = [...compareItems].sort((a, b) => b.similarity_score - a.similarity_score)[0]
+          setShowCompare(false)
+          openAppointment(best)
+        }}
+      >
+        <div className="chart-container mb-20">
+          <h4 className="chart-title">各维度匹配度对比</h4>
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis domain={[0, 100]} />
+              <Tooltip />
+              <Legend />
+              {['甲型', '色系', '装饰', '风格', '场合', '预算'].map((k, i) => (
+                <Bar key={k} dataKey={k} fill={SCORE_COLORS[i % SCORE_COLORS.length]} radius={[4, 4, 0, 0]} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-      </div>
+        <div className="grid" style={{ gridTemplateColumns: `repeat(${compareItems.length}, 1fr)` }}>
+          {compareItems.map(rec => {
+            const d = rec.design_data || {}
+            return (
+              <div key={rec.id} className="card">
+                <div className="design-image" style={{ borderRadius: 10, marginBottom: 12 }}>
+                  {d.image ? <img src={d.image} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 }} alt={d.name} /> : '💅'}
+                </div>
+                <h4 className="fs-15 fw-600 mb-6">{d.name}</h4>
+                <div className="fs-13 text-gray mb-8">{d.color_system} · {getShapeLabel(d.nail_shape)}</div>
+                <ul className="info-list">
+                  <li><span className="label">综合相似度</span><span className="val text-pink fw-700">{rec.similarity_score}分</span></li>
+                  <li><span className="label">甲型匹配</span><span className="val">{rec.shape_score}分</span></li>
+                  <li><span className="label">色系匹配</span><span className="val">{rec.color_score}分</span></li>
+                  <li><span className="label">装饰匹配</span><span className="val">{rec.decoration_score}分</span></li>
+                  <li><span className="label">风格匹配</span><span className="val">{rec.style_score}分</span></li>
+                  <li><span className="label">场合匹配</span><span className="val">{rec.occasion_score}分</span></li>
+                  <li><span className="label">预算匹配</span><span className="val">{rec.budget_score}分</span></li>
+                  <li><span className="label">参考价格</span><span className="val text-pink fw-600">¥{d.price}</span></li>
+                </ul>
+              </div>
+            )
+          })}
+        </div>
+      </ModalForm>
     )
   }
 
@@ -398,53 +393,148 @@ export default function TryOnLab() {
     if (!showAppointmentModal || !appointmentDesign) return null
     const d = appointmentDesign.design_data || {}
     return (
-      <div className="modal-overlay" onClick={() => setShowAppointmentModal(false)}>
-        <div className="modal" onClick={e => e.stopPropagation()}>
-          <div className="modal-header">
-            <h3>📅 生成预约草稿</h3>
-            <button className="modal-close" onClick={() => setShowAppointmentModal(false)}>×</button>
+      <ModalForm
+        open={showAppointmentModal}
+        onClose={() => setShowAppointmentModal(false)}
+        title="📅 生成预约草稿"
+        submitText="确认生成预约草稿"
+        onSubmit={(e) => { e.preventDefault(); handleCreateAppointment() }}
+        submitDisabled={submitting}
+      >
+        <div className="recommendation-item mb-20">
+          <div className="rec-image">
+            {d.image ? <img src={d.image} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} alt={d.name} /> : '💅'}
           </div>
-          <div className="modal-body">
-            <div className="recommendation-item mb-20">
-              <div className="rec-image">
-                {d.image ? <img src={d.image} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} alt={d.name} /> : '💅'}
-              </div>
-              <div className="flex-1">
-                <h5>{d.name}</h5>
-                <p>{d.color_system} · {getShapeLabel(d.nail_shape)} · {getOccasionLabel(d.occasion)}</p>
-                <p>相似度评分：<span className="text-pink fw-700">{appointmentDesign.similarity_score}分</span></p>
-              </div>
-              <div className="text-pink fw-700 fs-20">¥{d.price}</div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>预约日期</label>
-                <input type="date" className="input" value={appointmentForm.appointment_date}
-                  onChange={e => setAppointmentForm({ ...appointmentForm, appointment_date: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label>预约时间</label>
-                <input type="time" className="input" value={appointmentForm.appointment_time}
-                  onChange={e => setAppointmentForm({ ...appointmentForm, appointment_time: e.target.value })} />
-              </div>
-            </div>
-            <div className="form-group">
-              <label>美甲师</label>
-              <select className="select" value={appointmentForm.technician_id}
-                onChange={e => setAppointmentForm({ ...appointmentForm, technician_id: e.target.value })}>
-                {technicians.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>备注</label>
-              <textarea className="textarea" rows="3" value={appointmentForm.notes}
-                onChange={e => setAppointmentForm({ ...appointmentForm, notes: e.target.value })} />
-            </div>
+          <div className="flex-1">
+            <h5>{d.name}</h5>
+            <p>{d.color_system} · {getShapeLabel(d.nail_shape)} · {getOccasionLabel(d.occasion)}</p>
+            <p>相似度评分：<span className="text-pink fw-700">{appointmentDesign.similarity_score}分</span></p>
           </div>
-          <div className="modal-footer">
-            <button className="btn btn-secondary" onClick={() => setShowAppointmentModal(false)}>取消</button>
-            <button className="btn btn-primary" onClick={handleCreateAppointment}>确认生成预约草稿</button>
+          <div className="text-pink fw-700 fs-20">¥{d.price}</div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>预约日期</label>
+            <input
+              type="date"
+              className="input"
+              value={appointmentForm.appointment_date}
+              onChange={e => setAppointmentForm({ ...appointmentForm, appointment_date: e.target.value })}
+            />
           </div>
+          <div className="form-group">
+            <label>预约时间</label>
+            <input
+              type="time"
+              className="input"
+              value={appointmentForm.appointment_time}
+              onChange={e => setAppointmentForm({ ...appointmentForm, appointment_time: e.target.value })}
+            />
+          </div>
+        </div>
+        <div className="form-group">
+          <label>美甲师</label>
+          <select
+            className="select"
+            value={appointmentForm.technician}
+            onChange={e => setAppointmentForm({ ...appointmentForm, technician: e.target.value })}
+          >
+            {technicians.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>备注</label>
+          <textarea
+            className="textarea"
+            rows="3"
+            value={appointmentForm.notes}
+            onChange={e => setAppointmentForm({ ...appointmentForm, notes: e.target.value })}
+          />
+        </div>
+      </ModalForm>
+    )
+  }
+
+  const renderHistoryTable = () => {
+    const hasFilter = filterCustomer || filterStatus || filterSimMin || filterSimMax
+    const columns = [
+      { key: 'id', title: '任务ID', render: (v) => `#${v}` },
+      { key: 'customer_name', title: '顾客', render: (v) => v || '-' },
+      {
+        key: 'status',
+        title: '状态',
+        render: (v) => {
+          const sm = getTryOnStatusMeta(v)
+          return <StatusTag label={sm.label} cls={sm.cls} />
+        }
+      },
+      { key: 'skin_tone_display', title: '肤色', render: (v) => v || '-' },
+      { key: 'hand_shape_display', title: '手型', render: (v) => v || '-' },
+      { key: 'nail_length_display', title: '指甲', render: (v) => v || '-' },
+      { key: 'target_occasion_display', title: '场合', render: (v) => v || '-' },
+      {
+        key: 'converted_appointment_id',
+        title: '是否转化',
+        render: (v) => v
+          ? <StatusTag label={`已转化 #${v}`} cls="badge-completed" />
+          : <span className="text-lightgray fs-13">未转化</span>
+      },
+      { key: 'created_at', title: '创建时间', render: (v) => v?.slice(0, 16).replace('T', ' ') },
+      {
+        key: 'actions',
+        title: '操作',
+        render: (_, row) => (
+          <button className="btn btn-sm btn-primary" onClick={() => selectTask(row)}>查看结果</button>
+        )
+      },
+    ]
+
+    return (
+      <div>
+        <FilterBar>
+          <select className="select" value={filterCustomer} onChange={e => setFilterCustomer(e.target.value)}>
+            <option value="">全部顾客</option>
+            {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select className="select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+            <option value="">全部状态</option>
+            {['pending', 'processing', 'completed', 'failed'].map(s => (
+              <option key={s} value={s}>{getTryOnStatusMeta(s).label}</option>
+            ))}
+          </select>
+          <input
+            type="number"
+            className="input"
+            placeholder="最低相似度"
+            style={{ width: 140 }}
+            value={filterSimMin}
+            onChange={e => setFilterSimMin(e.target.value)}
+          />
+          <input
+            type="number"
+            className="input"
+            placeholder="最高相似度"
+            style={{ width: 140 }}
+            value={filterSimMax}
+            onChange={e => setFilterSimMax(e.target.value)}
+          />
+          {hasFilter && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => { setFilterCustomer(''); setFilterStatus(''); setFilterSimMin(''); setFilterSimMax('') }}
+            >
+              清除筛选
+            </button>
+          )}
+        </FilterBar>
+
+        <div className="card">
+          <DataTable
+            columns={columns}
+            data={taskList}
+            emptyIcon="📋"
+            emptyText="暂无试甲任务"
+          />
         </div>
       </div>
     )
@@ -472,21 +562,28 @@ export default function TryOnLab() {
 
             <div className="form-group">
               <label>选择顾客 *</label>
-              <select className="select" value={selectedCustomer?.id || ''}
+              <select
+                className="select"
+                value={selectedCustomer?.id || ''}
                 onChange={e => {
                   const c = customers.find(x => x.id == e.target.value)
                   handleCustomerSelect(c || null)
-                }}>
+                }}
+              >
                 <option value="">请选择顾客</option>
                 {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}
               </select>
             </div>
 
             <div className="flex gap-10 mb-14">
-              <button className={`btn btn-sm ${!useReferenceWork ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => { setUseReferenceWork(false); setSelectedWork(null) }}>📷 上传照片</button>
-              <button className={`btn btn-sm ${useReferenceWork ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => { setUseReferenceWork(true); setPhotoFile(null); setPhotoPreview(null) }}>📁 历史作品</button>
+              <button
+                className={`btn btn-sm ${!useReferenceWork ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => { setUseReferenceWork(false); setSelectedWork(null) }}
+              >📷 上传照片</button>
+              <button
+                className={`btn btn-sm ${useReferenceWork ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => { setUseReferenceWork(true); setPhotoFile(null); setPhotoPreview(null) }}
+              >📁 历史作品</button>
             </div>
 
             {!useReferenceWork && (
@@ -533,8 +630,11 @@ export default function TryOnLab() {
 
             <div className="form-group">
               <label>目标场合</label>
-              <select className="select" value={targetOccasion}
-                onChange={e => setTargetOccasion(e.target.value)}>
+              <select
+                className="select"
+                value={targetOccasion}
+                onChange={e => setTargetOccasion(e.target.value)}
+              >
                 <option value="">不限场合</option>
                 {OCCASIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -542,8 +642,11 @@ export default function TryOnLab() {
 
             <div className="form-group">
               <label>预算范围</label>
-              <select className="select" value={budget}
-                onChange={e => setBudget(e.target.value)}>
+              <select
+                className="select"
+                value={budget}
+                onChange={e => setBudget(e.target.value)}
+              >
                 <option value="">不限预算</option>
                 {BUDGETS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
               </select>
@@ -555,17 +658,24 @@ export default function TryOnLab() {
                 {COLOR_PALETTE.map(c => {
                   const active = preferredColors.includes(c)
                   return (
-                    <button key={c} type="button"
+                    <button
+                      key={c}
+                      type="button"
                       className={`btn btn-sm ${active ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={() => toggleColor(c)}>{c}</button>
+                      onClick={() => toggleColor(c)}
+                    >{c}</button>
                   )
                 })}
               </div>
             </div>
 
             <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f3f4f6' }}>
-              <button className="btn btn-primary" style={{ width: '100%', padding: '12px 0', fontSize: 15 }}
-                onClick={handleSubmit} disabled={submitting}>
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '12px 0', fontSize: 15 }}
+                onClick={handleSubmit}
+                disabled={submitting}
+              >
                 {submitting ? '🔄 正在提交分析...' : '✨ 开始 AI 试甲分析'}
               </button>
               <p className="fs-12 text-gray text-center mt-10">
@@ -585,79 +695,11 @@ export default function TryOnLab() {
 
       {tab === 'result' && !selectedTask && (
         <div className="card">
-          <div className="empty-state">
-            <div className="icon">✨</div>
-            <p>请先从"历史任务"中选择一个试甲结果，或新建试甲任务</p>
-          </div>
+          <EmptyState icon="✨" text="请先从历史任务中选择一个试甲结果，或新建试甲任务" />
         </div>
       )}
 
-      {tab === 'history' && (
-        <div>
-          <div className="filter-bar">
-            <select className="select" value={filterCustomer} onChange={e => setFilterCustomer(e.target.value)}>
-              <option value="">全部顾客</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-            <select className="select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-              <option value="">全部状态</option>
-              {['pending', 'processing', 'completed', 'failed'].map(s => (
-                <option key={s} value={s}>{getTryOnStatusMeta(s).label}</option>
-              ))}
-            </select>
-            <input type="number" className="input" placeholder="最低相似度" style={{ width: 140 }}
-              value={filterSimMin} onChange={e => setFilterSimMin(e.target.value)} />
-            <input type="number" className="input" placeholder="最高相似度" style={{ width: 140 }}
-              value={filterSimMax} onChange={e => setFilterSimMax(e.target.value)} />
-          </div>
-
-          <div className="card">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>任务ID</th>
-                  <th>顾客</th>
-                  <th>状态</th>
-                  <th>肤色</th>
-                  <th>手型</th>
-                  <th>指甲</th>
-                  <th>场合</th>
-                  <th>是否转化</th>
-                  <th>创建时间</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {taskList.length > 0 ? taskList.map(t => {
-                  const sm = getTryOnStatusMeta(t.status)
-                  return (
-                    <tr key={t.id}>
-                      <td>#{t.id}</td>
-                      <td>{t.customer_name || '-'}</td>
-                      <td><span className={`badge ${sm.cls}`}>{sm.label}</span></td>
-                      <td>{t.skin_tone_display || '-'}</td>
-                      <td>{t.hand_shape_display || '-'}</td>
-                      <td>{t.nail_length_display || '-'}</td>
-                      <td>{t.target_occasion_display || '-'}</td>
-                      <td>
-                        {t.converted_appointment_id
-                          ? <span className="badge badge-completed">已转化 #{t.converted_appointment_id}</span>
-                          : <span className="text-lightgray fs-13">未转化</span>}
-                      </td>
-                      <td>{t.created_at?.slice(0, 16).replace('T', ' ')}</td>
-                      <td>
-                        <button className="btn btn-sm btn-primary" onClick={() => selectTask(t)}>查看结果</button>
-                      </td>
-                    </tr>
-                  )
-                }) : (
-                  <tr><td colSpan="10"><div className="empty-state"><div className="icon">📋</div><p>暂无试甲任务</p></div></td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {tab === 'history' && renderHistoryTable()}
 
       {renderCompareModal()}
       {renderAppointmentModal()}
