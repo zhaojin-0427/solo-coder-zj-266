@@ -12,6 +12,7 @@ export const techniciansAPI = {
   get: (id) => api.get(`/technicians/${id}/`),
   create: (data) => api.post('/technicians/', data),
   update: (id, data) => api.put(`/technicians/${id}/`, data),
+  partialUpdate: (id, data) => api.patch(`/technicians/${id}/`, data),
   delete: (id) => api.delete(`/technicians/${id}/`),
 }
 
@@ -20,6 +21,7 @@ export const customersAPI = {
   get: (id) => api.get(`/customers/${id}/`),
   create: (data) => api.post('/customers/', data),
   update: (id, data) => api.put(`/customers/${id}/`, data),
+  partialUpdate: (id, data) => api.patch(`/customers/${id}/`, data),
   delete: (id) => api.delete(`/customers/${id}/`),
   preference: (id) => api.get(`/customers/${id}/preference/`),
   updatePreference: (id, data) => api.post(`/customers/${id}/update_preference/`, data),
@@ -35,6 +37,7 @@ export const designsAPI = {
   get: (id) => api.get(`/designs/${id}/`),
   create: (data) => api.post('/designs/', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
   update: (id, data) => api.put(`/designs/${id}/`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  partialUpdate: (id, data) => api.patch(`/designs/${id}/`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
   delete: (id) => api.delete(`/designs/${id}/`),
 }
 
@@ -43,6 +46,7 @@ export const appointmentsAPI = {
   get: (id) => api.get(`/appointments/${id}/`),
   create: (data) => api.post('/appointments/', data),
   update: (id, data) => api.put(`/appointments/${id}/`, data),
+  partialUpdate: (id, data) => api.patch(`/appointments/${id}/`, data),
   delete: (id) => api.delete(`/appointments/${id}/`),
 }
 
@@ -51,6 +55,7 @@ export const worksAPI = {
   get: (id) => api.get(`/works/${id}/`),
   create: (data) => api.post('/works/', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
   update: (id, data) => api.put(`/works/${id}/`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  partialUpdate: (id, data) => api.patch(`/works/${id}/`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
   delete: (id) => api.delete(`/works/${id}/`),
 }
 

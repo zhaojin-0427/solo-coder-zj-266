@@ -175,14 +175,14 @@ class NailWork(models.Model):
     ]
 
     appointment = models.OneToOneField(Appointment, on_delete=models.CASCADE, related_name='work',
-                                       verbose_name='关联预约')
+                                       verbose_name='关联预约', null=True, blank=True)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, verbose_name='顾客',
                                  related_name='works')
     technician = models.ForeignKey(Technician, on_delete=models.CASCADE, verbose_name='操作美甲师',
                                    related_name='works')
     design = models.ForeignKey(NailDesign, on_delete=models.SET_NULL, null=True, blank=True,
                                verbose_name='参考款式')
-    photo = models.ImageField(upload_to='works/', verbose_name='完成照片')
+    photo = models.ImageField(upload_to='works/', verbose_name='完成照片', null=True, blank=True)
     actual_nail_shape = models.CharField(max_length=50, blank=True, verbose_name='实际甲型')
     actual_color = models.CharField(max_length=100, blank=True, verbose_name='实际色系')
     duration_days = models.IntegerField(default=0, verbose_name='维持天数')

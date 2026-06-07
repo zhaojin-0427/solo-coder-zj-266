@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Count, Avg, Q, Sum
+from django.db.models import Count, Avg, Q, Sum, Max
 from django.db.models.functions import TruncMonth, TruncWeek
 from datetime import datetime, timedelta
 from collections import Counter, defaultdict
@@ -33,7 +33,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         qs = qs.annotate(
             works_count=Count('works'),
-            last_visit=Avg('works__completed_at')
+            last_visit=Max('works__completed_at')
         )
         return qs
 

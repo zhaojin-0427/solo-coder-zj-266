@@ -45,7 +45,7 @@ export default function AppointmentPage() {
   }
 
   const updateStatus = (id, status) => {
-    appointmentsAPI.update(id, { status }).then(() => loadData())
+    appointmentsAPI.partialUpdate(id, { status }).then(() => loadData()).catch(err => alert('更新失败: ' + (err.response?.data?.detail || err.message)))
   }
 
   const deleteItem = (id) => {
