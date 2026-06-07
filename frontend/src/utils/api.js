@@ -146,6 +146,82 @@ export const SEASONS = {
   winter: '冬季',
 }
 
+export const tryOnAPI = {
+  list: (params = {}) => api.get('/try-on-tasks/', { params }),
+  get: (id) => api.get(`/try-on-tasks/${id}/`),
+  create: (data) => api.post('/try-on-tasks/', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  update: (id, data) => api.put(`/try-on-tasks/${id}/`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  partialUpdate: (id, data) => api.patch(`/try-on-tasks/${id}/`, data),
+  delete: (id) => api.delete(`/try-on-tasks/${id}/`),
+  reprocess: (id) => api.post(`/try-on-tasks/${id}/reprocess/`),
+  recommendations: (id) => api.get(`/try-on-tasks/${id}/recommendations/`),
+  logClick: (id, data) => api.post(`/try-on-tasks/${id}/log_click/`, data),
+  createAppointmentDraft: (id, data) => api.post(`/try-on-tasks/${id}/create_appointment_draft/`, data),
+  myHistory: (customerId) => api.get('/try-on-tasks/my_history/', { params: { customer: customerId } }),
+}
+
+export const designClicksAPI = {
+  list: (params = {}) => api.get('/design-clicks/', { params }),
+  create: (data) => api.post('/design-clicks/', data),
+}
+
+export const tryOnStatisticsAPI = {
+  conversionOverview: (months = 6) => api.get('/try-on-statistics/conversion_overview/', { params: { months } }),
+  conversionTrend: (months = 6) => api.get('/try-on-statistics/conversion_trend/', { params: { months } }),
+  similarDesignRanking: (months = 3, limit = 10) => api.get('/try-on-statistics/similar_design_ranking/', { params: { months, limit } }),
+  skinTonePreference: (months = 6) => api.get('/try-on-statistics/skin_tone_preference/', { params: { months } }),
+  handShapePreference: (months = 6) => api.get('/try-on-statistics/hand_shape_preference/', { params: { months } }),
+}
+
+export const SKIN_TONES = [
+  { value: 'fair', label: '冷白肤色' },
+  { value: 'light', label: '白皙肤色' },
+  { value: 'medium', label: '自然肤色' },
+  { value: 'tan', label: '小麦肤色' },
+  { value: 'dark', label: '健康肤色' },
+]
+
+export const HAND_SHAPES = [
+  { value: 'slender', label: '纤细修长型' },
+  { value: 'standard', label: '标准匀称型' },
+  { value: 'plump', label: '丰满圆润型' },
+  { value: 'broad', label: '宽厚有力型' },
+]
+
+export const NAIL_LENGTHS = [
+  { value: 'very_short', label: '超短（<1mm）' },
+  { value: 'short', label: '短（1-3mm）' },
+  { value: 'medium', label: '中（3-6mm）' },
+  { value: 'long', label: '长（6-10mm）' },
+  { value: 'very_long', label: '超长（>10mm）' },
+]
+
+export const BUDGETS = [
+  { value: 'low', label: '平价（100元以下）' },
+  { value: 'medium', label: '中档（100-300元）' },
+  { value: 'high', label: '高档（300-600元）' },
+  { value: 'luxury', label: '奢华（600元以上）' },
+]
+
+export const TRYON_STATUS = [
+  { value: 'pending', label: '待处理', cls: 'badge-pending' },
+  { value: 'processing', label: '识别中', cls: 'badge-in_progress' },
+  { value: 'completed', label: '已完成', cls: 'badge-completed' },
+  { value: 'failed', label: '失败', cls: 'badge-cancelled' },
+]
+
+export const COLOR_PALETTE = [
+  '粉色系', '裸色系', '黑色系', '蓝色系', '白色系', '棕色系',
+  '紫色系', '绿色系', '红色系', '奶茶色系', '灰色系', '橘色系',
+  '玫瑰色', '酒红色', '焦糖色', '墨绿色', '金黄色', '闪钻系',
+]
+
+export const getSkinToneLabel = (v) => SKIN_TONES.find(s => s.value === v)?.label || v
+export const getHandShapeLabel = (v) => HAND_SHAPES.find(s => s.value === v)?.label || v
+export const getNailLengthLabel = (v) => NAIL_LENGTHS.find(s => s.value === v)?.label || v
+export const getBudgetLabel = (v) => BUDGETS.find(s => s.value === v)?.label || v
+export const getTryOnStatusMeta = (v) => TRYON_STATUS.find(s => s.value === v) || { label: v, cls: '' }
+
 export const renderStars = (n) => {
   return '★'.repeat(n) + '☆'.repeat(5 - n)
 }

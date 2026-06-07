@@ -7,6 +7,7 @@ import WorkArchive from './pages/WorkArchive.jsx'
 import StatisticsPage from './pages/StatisticsPage.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import CustomerOpsPage from './pages/CustomerOpsPage.jsx'
+import TryOnLab from './pages/TryOnLab.jsx'
 
 export default function App() {
   return (
@@ -25,6 +26,11 @@ export default function App() {
           <li>
             <NavLink to="/customer-ops" className={({ isActive }) => isActive ? 'active' : ''}>
               <span className="nav-icon">🎯</span> 客户运营
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/try-on" className={({ isActive }) => isActive ? 'active' : ''}>
+              <span className="nav-icon">✨</span> 试甲实验室
             </NavLink>
           </li>
           <li>
@@ -60,6 +66,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/customer-ops" element={<CustomerOpsPage />} />
+          <Route path="/try-on" element={<TryOnLab />} />
           <Route path="/designs" element={<DesignGallery />} />
           <Route path="/appointments" element={<AppointmentPage />} />
           <Route path="/customers" element={<CustomerPage />} />

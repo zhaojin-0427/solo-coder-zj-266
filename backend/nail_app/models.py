@@ -267,3 +267,119 @@ class RiskScoreHistory(models.Model):
 
     def __str__(self):
         return f'{self.customer.name} - {self.score:.1f}分'
+
+
+class TryOnTask(models.Model):
+    STATUS_CHOICES = [
+        ('pending', '待处理'),
+        ('processing', '识别中'),
+        ('completed', '已完成'),
+        ('failed', '失败'),
+    ]
+
+    SKIN_TONE_CHOICES = [
+        ('fair', '冷白肤色'),
+        ('light', '白皙肤色'),
+        ('medium', '自然肤色'),
+        ('tan', '小麦肤色'),
+        ('dark', '健康肤色'),
+    ]
+
+    HAND_SHAPE_CHOICES = [
+        ('slender', '纤细修长型'),
+        ('standard', '标准匀称型'),
+        ('plump', '丰满圆润型'),
+        ('broad', '宽厚有力型'),
+    ]
+
+    NAIL_LENGTH_CHOICES = [
+        ('very_short', '超短（<1mm）'),
+        ('short', '短（1-3mm）'),
+        ('medium', '中（3-6mm）'),
+        ('long', '长（6-10mm）'),
+        ('very_long', '超长（>10mm）'),
+    ]
+
+    BUDGET_CHOICES = [
+        ('low', '平价（100元以下）'),
+        ('medium', '中档（100-300元）'),
+        ('high', '高档（300-600元）'),
+        ('luxury', '奢华（600元以上）'),
+    ]
+
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, verbose_name='顾客',
+                                 related_name='try_on_tasks', null=True, blank=True)
+    photo = models.ImageField(upload_to='try_on/', verbose_name='手部照片', null=True, blank=True)
+    reference_work = models.ForeignKey(NailWork, on_delete=models.SET_NULL, verbose_name='参考历史作品',
+                                       null=True, blank=True, related_name='referenced_by_try_ons')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='状态')
+    skin_tone = models.CharField(max_length=20, choices=SKIN_TONE_CHOICES, blank=True, verbose_name='识别肤色')
+    hand_shape = models.CharField(max_length=20, choices=HAND_SHAPE_CHOICES, blank=True, verbose_name='识别手型')
+    nail_length = models.CharField(max_length=20, choices=NAIL_LENGTH_CHOICES, blank=True, verbose_name='识别指甲长度')
+    target_occasion = models.CharField(max_length=20, choices=NailDesign.OCCASION_CHOICES, blank=True, verbose_name='目标场合')
+    budget = models.CharField(max_length=20, choices=BUDGET_CHOICES, blank=True, verbose_name='预算范围')
+    preferred_colors = models.CharField(max_length=500, blank=True, verbose_name='偏好色系（多选，逗号分隔）')
+    analysis_details = models.JSONField(default=dict, verbose_name='分析详情')
+    converted_appointment = models.ForeignKey(Appointment, on_delete=models.SET_NULL, verbose_name='转化预约',
+                                              null=True, blank=True, related_name='source_try_on')
+    error_message = models.TextField(blank=True, verbose_name='错误信息')
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name='完成时间')
+
+    class Meta:
+        verbose_name = '试甲任务'
+        verbose_name_plural = verbose_name
+        ordering = ['-created_at']
+
+    def __str__(self):
+        cust_name = self.customer.name if self.customer else '未登录顾客'
+        return f'{cust_name} - {self.get_status_display()} ({self.created_at.strftime("%m-%d %H:%M")})'
+
+
+class SimilarDesignResult(models.Model):
+    try_on_task = models.ForeignKey(TryOnTask, on_delete=models.CASCADE, verbose_name='试甲任务',
+                                    related_name='similar_results')
+    design = models.ForeignKey(NailDesign, on_delete=models.CASCADE, verbose_name='匹配款式',
+                               related_name='similar_matches')
+    similarity_score = models.FloatField(default=0, verbose_name='相似度评分（0-100）')
+    shape_score = models.FloatField(default=0, verbose_name='甲型匹配分')
+    color_score = models.FloatField(default=0, verbose_name='色系匹配分')
+    decoration_score = models.FloatField(default=0, verbose_name='装饰匹配分')
+    style_score = models.FloatField(default=0, verbose_name='风格匹配分')
+    occasion_score = models.FloatField(default=0, verbose_name='场合匹配分')
+    satisfaction_score = models.FloatField(default=0, verbose_name='历史满意度分')
+    budget_score = models.FloatField(default=0, verbose_name='预算匹配分')
+    score_breakdown = models.JSONField(default=dict, verbose_name='评分分解')
+    rank = models.IntegerField(default=0, verbose_name='推荐排序')
+    is_viewed = models.BooleanField(default=False, verbose_name='是否被浏览')
+    viewed_at = models.DateTimeField(null=True, blank=True, verbose_name='浏览时间')
+
+    class Meta:
+        verbose_name = '相似款式推荐结果'
+        verbose_name_plural = verbose_name
+        ordering = ['try_on_task', '-similarity_score']
+
+    def __str__(self):
+        return f'{self.try_on_task.id} - {self.design.name} ({self.similarity_score:.1f}分)'
+
+
+class DesignClickLog(models.Model):
+    try_on_task = models.ForeignKey(TryOnTask, on_delete=models.SET_NULL, verbose_name='关联试甲任务',
+                                    null=True, blank=True, related_name='click_logs')
+    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, verbose_name='点击顾客',
+                                 null=True, blank=True, related_name='design_clicks')
+    design = models.ForeignKey(NailDesign, on_delete=models.CASCADE, verbose_name='被点击款式',
+                               related_name='click_logs')
+    similar_result = models.ForeignKey(SimilarDesignResult, on_delete=models.SET_NULL, verbose_name='关联推荐结果',
+                                       null=True, blank=True, related_name='clicks')
+    click_type = models.CharField(max_length=30, default='view', verbose_name='点击类型',
+                                  choices=[('view', '浏览'), ('compare', '对比'), ('favorite', '收藏'), ('book', '预约')])
+    clicked_at = models.DateTimeField(default=datetime.now, verbose_name='点击时间')
+
+    class Meta:
+        verbose_name = '款式点击日志'
+        verbose_name_plural = verbose_name
+        ordering = ['-clicked_at']
+
+    def __str__(self):
+        return f'{self.design.name} - {self.get_click_type_display()}'

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import {
   customersAPI, worksAPI, appointmentsAPI, renderStars, SEASONS, getOccasionLabel, getShapeLabel,
-  getMemberLevelMeta, getRiskLevelMeta, getContactTypeLabel, CONTACT_TYPES
+  getMemberLevelMeta, getRiskLevelMeta, getContactTypeLabel, CONTACT_TYPES,
+  tryOnAPI, getTryOnStatusMeta, getSkinToneLabel, getHandShapeLabel, getNailLengthLabel
 } from '../utils/api.js'
 import {
   LineChart, Line, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip
@@ -25,6 +26,7 @@ export default function CustomerPage() {
   const [tab, setTab] = useState('info')
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
+  const [tryOnHistory, setTryOnHistory] = useState([])
   const [form, setForm] = useState({ name: '', phone: '', gender: 'female', birthday: '', notes: '', member_level: 'normal' })
   const [showPref, setShowPref] = useState(false)
   const [prefForm, setPrefForm] = useState({
@@ -61,6 +63,7 @@ export default function CustomerPage() {
     customersAPI.contactRecords(c.id).then(r => setContactRecords(r.data.results || r.data))
     worksAPI.list({ customer: c.id }).then(r => setWorks(r.data.results || r.data))
     appointmentsAPI.list({ customer: c.id }).then(r => setAppointments(r.data.results || r.data))
+    tryOnAPI.myHistory(c.id).then(r => setTryOnHistory(r.data.results || r.data))
   }
 
   const handleSubmit = (e) => {
@@ -202,6 +205,7 @@ export default function CustomerPage() {
             <button className={`tab ${tab === 'works' ? 'active' : ''}`} onClick={() => setTab('works')}>历史作品</button>
             <button className={`tab ${tab === 'appts' ? 'active' : ''}`} onClick={() => setTab('appts')}>预约记录</button>
             <button className={`tab ${tab === 'contacts' ? 'active' : ''}`} onClick={() => setTab('contacts')}>跟进记录</button>
+            <button className={`tab ${tab === 'tryon' ? 'active' : ''}`} onClick={() => setTab('tryon')}>✨ 试甲历史</button>
           </div>
 
           {tab === 'info' && (
@@ -433,6 +437,75 @@ export default function CustomerPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {tab === 'tryon' && (
+            <div>
+              <div className="grid grid-3 mb-20">
+                <div className="stat-card">
+                  <h3>试甲总次数</h3>
+                  <div className="value">{tryOnHistory.length}</div>
+                </div>
+                <div className="stat-card" style={{ borderLeftColor: '#10b981' }}>
+                  <h3>已转化预约</h3>
+                  <div className="value" style={{ color: '#10b981' }}>
+                    {tryOnHistory.filter(t => t.converted_appointment_id).length}
+                  </div>
+                </div>
+                <div className="stat-card" style={{ borderLeftColor: '#8b5cf6' }}>
+                  <h3>转化率</h3>
+                  <div className="value" style={{ color: '#8b5cf6' }}>
+                    {tryOnHistory.length > 0
+                      ? ((tryOnHistory.filter(t => t.converted_appointment_id).length / tryOnHistory.length) * 100).toFixed(0)
+                      : 0}%
+                  </div>
+                </div>
+              </div>
+
+              <div className="card">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>任务ID</th>
+                      <th>状态</th>
+                      <th>识别肤色</th>
+                      <th>识别手型</th>
+                      <th>指甲长度</th>
+                      <th>目标场合</th>
+                      <th>预算</th>
+                      <th>推荐款式</th>
+                      <th>是否转化</th>
+                      <th>时间</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tryOnHistory.length > 0 ? tryOnHistory.map(t => {
+                      const sm = getTryOnStatusMeta(t.status)
+                      return (
+                        <tr key={t.id}>
+                          <td>#{t.id}</td>
+                          <td><span className={`badge ${sm.cls}`}>{sm.label}</span></td>
+                          <td>{t.skin_tone_display || '-'}</td>
+                          <td>{t.hand_shape_display || '-'}</td>
+                          <td>{t.nail_length_display || '-'}</td>
+                          <td>{t.target_occasion_display || '-'}</td>
+                          <td>{t.budget_display || '-'}</td>
+                          <td>{t.similar_results?.length || 0} 款</td>
+                          <td>
+                            {t.converted_appointment_id
+                              ? <span className="badge badge-completed">预约 #{t.converted_appointment_id}</span>
+                              : <span className="text-lightgray fs-13">未转化</span>}
+                          </td>
+                          <td>{t.created_at?.slice(0, 16).replace('T', ' ')}</td>
+                        </tr>
+                      )
+                    }) : (
+                      <tr><td colSpan="10"><div className="empty-state"><div className="icon">✨</div><p>暂无试甲记录</p></div></td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

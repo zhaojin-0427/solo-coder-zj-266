@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
     Technician, Customer, StyleTag, NailDesign, Appointment, NailWork,
-    CustomerPreference, ContactRecord, RiskScoreHistory
+    CustomerPreference, ContactRecord, RiskScoreHistory, TryOnTask,
+    SimilarDesignResult, DesignClickLog
 )
 
 
@@ -64,3 +65,25 @@ class RiskScoreHistoryAdmin(admin.ModelAdmin):
     list_display = ('customer', 'score', 'recorded_at')
     list_filter = ('recorded_at',)
     search_fields = ('customer__name',)
+
+
+@admin.register(TryOnTask)
+class TryOnTaskAdmin(admin.ModelAdmin):
+    list_display = ('customer', 'status', 'skin_tone', 'hand_shape', 'nail_length', 'target_occasion', 'created_at')
+    list_filter = ('status', 'skin_tone', 'hand_shape', 'nail_length', 'target_occasion', 'created_at')
+    search_fields = ('customer__name',)
+    readonly_fields = ('created_at', 'completed_at')
+
+
+@admin.register(SimilarDesignResult)
+class SimilarDesignResultAdmin(admin.ModelAdmin):
+    list_display = ('try_on_task', 'design', 'similarity_score', 'rank', 'is_viewed')
+    list_filter = ('is_viewed',)
+    search_fields = ('try_on_task__customer__name', 'design__name')
+
+
+@admin.register(DesignClickLog)
+class DesignClickLogAdmin(admin.ModelAdmin):
+    list_display = ('customer', 'design', 'click_type', 'clicked_at')
+    list_filter = ('click_type', 'clicked_at')
+    search_fields = ('customer__name', 'design__name')

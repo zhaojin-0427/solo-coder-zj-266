@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import (
     Technician, Customer, StyleTag, NailDesign, Appointment, NailWork,
-    CustomerPreference, ContactRecord, RiskScoreHistory
+    CustomerPreference, ContactRecord, RiskScoreHistory, TryOnTask,
+    SimilarDesignResult, DesignClickLog
 )
 
 
@@ -90,4 +91,40 @@ class ContactRecordSerializer(serializers.ModelSerializer):
 class RiskScoreHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = RiskScoreHistory
+        fields = '__all__'
+
+
+class SimilarDesignResultSerializer(serializers.ModelSerializer):
+    design_data = NailDesignSerializer(source='design', read_only=True)
+
+    class Meta:
+        model = SimilarDesignResult
+        fields = '__all__'
+
+
+class TryOnTaskSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source='customer.name', read_only=True, default='')
+    customer_phone = serializers.CharField(source='customer.phone', read_only=True, default='')
+    reference_work_name = serializers.CharField(source='reference_work.design.name', read_only=True, default='')
+    converted_appointment_id = serializers.IntegerField(source='converted_appointment.id', read_only=True, default=None)
+    similar_results = SimilarDesignResultSerializer(many=True, read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    skin_tone_display = serializers.CharField(source='get_skin_tone_display', read_only=True, default='')
+    hand_shape_display = serializers.CharField(source='get_hand_shape_display', read_only=True, default='')
+    nail_length_display = serializers.CharField(source='get_nail_length_display', read_only=True, default='')
+    budget_display = serializers.CharField(source='get_budget_display', read_only=True, default='')
+    target_occasion_display = serializers.CharField(source='get_target_occasion_display', read_only=True, default='')
+
+    class Meta:
+        model = TryOnTask
+        fields = '__all__'
+
+
+class DesignClickLogSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source='customer.name', read_only=True, default='')
+    design_name = serializers.CharField(source='design.name', read_only=True)
+    click_type_display = serializers.CharField(source='get_click_type_display', read_only=True)
+
+    class Meta:
+        model = DesignClickLog
         fields = '__all__'
