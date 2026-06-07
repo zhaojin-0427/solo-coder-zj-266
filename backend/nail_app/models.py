@@ -1,5 +1,5 @@
 from django.db import models
-from datetime import date
+from datetime import date, datetime
 
 
 class Technician(models.Model):
@@ -26,12 +26,22 @@ class Customer(models.Model):
         ('male', '男'),
         ('other', '其他'),
     ]
+    MEMBER_LEVEL_CHOICES = [
+        ('normal', '普通会员'),
+        ('silver', '银卡会员'),
+        ('gold', '金卡会员'),
+        ('platinum', '钻石会员'),
+    ]
     name = models.CharField(max_length=100, verbose_name='姓名')
     phone = models.CharField(max_length=20, unique=True, verbose_name='手机号')
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default='female', verbose_name='性别')
     birthday = models.DateField(blank=True, null=True, verbose_name='生日')
     avatar = models.ImageField(upload_to='customers/', blank=True, null=True, verbose_name='头像')
     notes = models.TextField(blank=True, verbose_name='备注')
+    member_level = models.CharField(max_length=20, choices=MEMBER_LEVEL_CHOICES, default='normal', verbose_name='会员等级')
+    last_contact_at = models.DateTimeField(blank=True, null=True, verbose_name='最近联系时间')
+    churn_risk_score = models.FloatField(default=0, verbose_name='流失风险评分')
+    recommended_action = models.TextField(blank=True, verbose_name='推荐跟进动作')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -215,3 +225,45 @@ class CustomerPreference(models.Model):
 
     def __str__(self):
         return f'{self.customer.name}的偏好'
+
+
+class ContactRecord(models.Model):
+    CONTACT_TYPE_CHOICES = [
+        ('phone', '电话'),
+        ('wechat', '微信'),
+        ('sms', '短信'),
+        ('visit', '到店'),
+        ('other', '其他'),
+    ]
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, verbose_name='顾客',
+                                 related_name='contact_records')
+    contact_type = models.CharField(max_length=20, choices=CONTACT_TYPE_CHOICES, default='wechat',
+                                    verbose_name='联系方式')
+    content = models.TextField(verbose_name='联系内容')
+    contacted_at = models.DateTimeField(default=datetime.now, verbose_name='联系时间')
+    operator = models.CharField(max_length=50, blank=True, verbose_name='操作人')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = '联系记录'
+        verbose_name_plural = verbose_name
+        ordering = ['-contacted_at']
+
+    def __str__(self):
+        return f'{self.customer.name} - {self.get_contact_type_display()}'
+
+
+class RiskScoreHistory(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, verbose_name='顾客',
+                                 related_name='risk_histories')
+    score = models.FloatField(verbose_name='风险评分')
+    factors = models.JSONField(default=dict, verbose_name='评分因子详情')
+    recorded_at = models.DateTimeField(default=datetime.now, verbose_name='记录时间')
+
+    class Meta:
+        verbose_name = '风险评分历史'
+        verbose_name_plural = verbose_name
+        ordering = ['-recorded_at']
+
+    def __str__(self):
+        return f'{self.customer.name} - {self.score:.1f}分'

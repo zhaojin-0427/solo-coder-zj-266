@@ -26,6 +26,21 @@ export const customersAPI = {
   preference: (id) => api.get(`/customers/${id}/preference/`),
   updatePreference: (id, data) => api.post(`/customers/${id}/update_preference/`, data),
   recommendations: (id) => api.get(`/customers/${id}/recommendations/`),
+  churnRisk: (id) => api.get(`/customers/${id}/churn_risk/`),
+  contactRecords: (id) => api.get(`/customers/${id}/contact_records/`),
+  riskHistory: (id) => api.get(`/customers/${id}/risk_history/`),
+  addContact: (id, data) => api.post(`/customers/${id}/add_contact/`, data),
+  createFollowupAppointment: (id, data) => api.post(`/customers/${id}/create_followup_appointment/`, data),
+}
+
+export const contactRecordsAPI = {
+  list: (params = {}) => api.get('/contact-records/', { params }),
+  create: (data) => api.post('/contact-records/', data),
+}
+
+export const customerOpsAPI = {
+  highRisk: (threshold = 40) => api.get('/customer-ops/high_risk/', { params: { threshold } }),
+  recalculateAll: () => api.post('/customer-ops/recalculate_all/'),
 }
 
 export const styleTagsAPI = {
@@ -65,7 +80,35 @@ export const statisticsAPI = {
   designLifecycle: () => api.get('/statistics/design_lifecycle/'),
   preferenceTrend: (months = 6) => api.get('/statistics/preference_trend/', { params: { months } }),
   technicianEfficiency: (months = 3) => api.get('/statistics/technician_efficiency/', { params: { months } }),
+  memberLevelDistribution: () => api.get('/statistics/member_level_distribution/'),
+  repurchaseInterval: () => api.get('/statistics/repurchase_interval/'),
+  churnRiskTrend: (months = 6) => api.get('/statistics/churn_risk_trend/', { params: { months } }),
 }
+
+export const MEMBER_LEVELS = [
+  { value: 'normal', label: '普通会员', color: '#9ca3af' },
+  { value: 'silver', label: '银卡会员', color: '#6b7280' },
+  { value: 'gold', label: '金卡会员', color: '#f59e0b' },
+  { value: 'platinum', label: '钻石会员', color: '#8b5cf6' },
+]
+
+export const CONTACT_TYPES = [
+  { value: 'phone', label: '电话' },
+  { value: 'wechat', label: '微信' },
+  { value: 'sms', label: '短信' },
+  { value: 'visit', label: '到店' },
+  { value: 'other', label: '其他' },
+]
+
+export const RISK_LEVELS = {
+  low: { label: '低风险', color: '#10b981', cls: 'badge-completed' },
+  medium: { label: '中风险', color: '#f59e0b', cls: 'badge-pending' },
+  high: { label: '高风险', color: '#ef4444', cls: 'badge-cancelled' },
+}
+
+export const getMemberLevelMeta = (v) => MEMBER_LEVELS.find(m => m.value === v) || MEMBER_LEVELS[0]
+export const getRiskLevelMeta = (v) => RISK_LEVELS[v] || RISK_LEVELS.low
+export const getContactTypeLabel = (v) => CONTACT_TYPES.find(c => c.value === v)?.label || v
 
 export const NAIL_SHAPES = [
   { value: 'oval', label: '椭圆形' },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { statisticsAPI, renderStars } from '../utils/api.js'
+import { statisticsAPI, renderStars, getMemberLevelMeta } from '../utils/api.js'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   LineChart, Line, ResponsiveContainer, PieChart, Pie, Cell, RadarChart,
@@ -7,6 +7,8 @@ import {
 } from 'recharts'
 
 const COLORS = ['hotpink', 'rebeccapurple', 'darkcyan', 'mediumseagreen', 'darkorange', 'crimson', 'slateblue', 'chocolate']
+const MEMBER_COLORS = ['#9ca3af', '#6b7280', '#f59e0b', '#8b5cf6']
+const RISK_COLORS2 = ['#10b981', '#f59e0b', '#ef4444']
 
 export default function StatisticsPage() {
   const [tab, setTab] = useState('color')
@@ -15,6 +17,9 @@ export default function StatisticsPage() {
   const [trend, setTrend] = useState(null)
   const [efficiency, setEfficiency] = useState([])
   const [overview, setOverview] = useState(null)
+  const [memberDist, setMemberDist] = useState([])
+  const [repurchaseData, setRepurchaseData] = useState(null)
+  const [churnTrend, setChurnTrend] = useState(null)
 
   useEffect(() => {
     statisticsAPI.colorRanking(6).then(r => setColorRanking(r.data))
@@ -22,6 +27,9 @@ export default function StatisticsPage() {
     statisticsAPI.preferenceTrend(6).then(r => setTrend(r.data))
     statisticsAPI.technicianEfficiency(3).then(r => setEfficiency(r.data))
     statisticsAPI.overview().then(r => setOverview(r.data))
+    statisticsAPI.memberLevelDistribution().then(r => setMemberDist(r.data))
+    statisticsAPI.repurchaseInterval().then(r => setRepurchaseData(r.data))
+    statisticsAPI.churnRiskTrend(6).then(r => setChurnTrend(r.data))
   }, [])
 
   const maxColor = colorRanking[0]?.count || 1
@@ -63,11 +71,31 @@ export default function StatisticsPage() {
         </div>
       )}
 
+      {overview && (
+        <div className="grid grid-3 mb-24">
+          <div className="stat-card" style={{ borderLeftColor: '#ef4444' }}>
+            <h3>🔴 高风险顾客</h3>
+            <div className="value" style={{ color: '#ef4444' }}>{overview.high_risk_count || 0}</div>
+          </div>
+          <div className="stat-card" style={{ borderLeftColor: '#f59e0b' }}>
+            <h3>🟡 中风险顾客</h3>
+            <div className="value" style={{ color: '#f59e0b' }}>{overview.medium_risk_count || 0}</div>
+          </div>
+          <div className="stat-card" style={{ borderLeftColor: '#10b981' }}>
+            <h3>🟢 低风险顾客</h3>
+            <div className="value" style={{ color: '#10b981' }}>{overview.low_risk_count || 0}</div>
+          </div>
+        </div>
+      )}
+
       <div className="tabs mb-24">
         <button className={`tab ${tab === 'color' ? 'active' : ''}`} onClick={() => setTab('color')}>🔥 热门色系排行</button>
         <button className={`tab ${tab === 'lifecycle' ? 'active' : ''}`} onClick={() => setTab('lifecycle')}>📊 款式生命周期</button>
         <button className={`tab ${tab === 'trend' ? 'active' : ''}`} onClick={() => setTab('trend')}>📈 顾客偏好变迁</button>
         <button className={`tab ${tab === 'efficiency' ? 'active' : ''}`} onClick={() => setTab('efficiency')}>👩‍💼 美甲师产出效率</button>
+        <button className={`tab ${tab === 'member' ? 'active' : ''}`} onClick={() => setTab('member')}>👑 会员等级分布</button>
+        <button className={`tab ${tab === 'repurchase' ? 'active' : ''}`} onClick={() => setTab('repurchase')}>🔄 复购间隔</button>
+        <button className={`tab ${tab === 'churn' ? 'active' : ''}`} onClick={() => setTab('churn')}>⚠️ 流失风险趋势</button>
       </div>
 
       {tab === 'color' && (
@@ -277,6 +305,116 @@ export default function StatisticsPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'member' && (
+        <div className="grid grid-2">
+          <div className="chart-container">
+            <h3 className="chart-title">👑 会员等级分布</h3>
+            {memberDist.length > 0 ? (
+              <ResponsiveContainer width="100%" height={360}>
+                <PieChart>
+                  <Pie
+                    data={memberDist}
+                    dataKey="count"
+                    nameKey="level_name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={120}
+                    label={({ level_name, percent }) => `${level_name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {memberDist.map((_, i) => (
+                      <Cell key={i} fill={MEMBER_COLORS[i % MEMBER_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="empty-state"><div className="icon">👑</div><p>暂无数据</p></div>
+            )}
+          </div>
+          <div className="chart-container">
+            <h3 className="chart-title">📊 各等级会员数量对比</h3>
+            {memberDist.length > 0 ? (
+              <ResponsiveContainer width="100%" height={360}>
+                <BarChart data={memberDist}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="level_name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" name="会员人数" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="empty-state"><div className="icon">📊</div><p>暂无数据</p></div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === 'repurchase' && repurchaseData && (
+        <div className="grid grid-2">
+          <div className="chart-container">
+            <h3 className="chart-title">🔄 平均复购间隔</h3>
+            <div className="text-center" style={{ padding: '40px 0' }}>
+              <div className="fs-14 text-gray mb-8">顾客平均复购间隔</div>
+              <div className="fs-48 fw-700" style={{ color: '#ec4899' }}>
+                {repurchaseData.avg_interval || 0}
+                <span className="fs-20" style={{ marginLeft: 8 }}>天</span>
+              </div>
+            </div>
+          </div>
+          <div className="chart-container">
+            <h3 className="chart-title">📊 复购间隔分布</h3>
+            {repurchaseData.distribution && repurchaseData.distribution.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={repurchaseData.distribution}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" name="顾客数" fill="hotpink" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="empty-state"><div className="icon">📊</div><p>暂无数据</p></div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === 'churn' && churnTrend && (
+        <div>
+          <div className="chart-container mb-24">
+            <h3 className="chart-title">⚠️ 流失风险趋势（近6个月）</h3>
+            <ResponsiveContainer width="100%" height={380}>
+              <LineChart data={churnTrend.months.map((m, i) => {
+                const row = { month: m }
+                churnTrend.trend_data.forEach(ct => { row[ct.name] = ct.data[i] || 0 })
+                return row
+              })}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                {churnTrend.trend_data.map((ct, i) => (
+                  <Line key={i} type="monotone" dataKey={ct.name} stroke={RISK_COLORS2[i % RISK_COLORS2.length]} strokeWidth={2} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="chart-container">
+            <h3 className="chart-title">💡 说明</h3>
+            <div className="fs-14 text-gray lh-20">
+              <p className="mb-8"><span style={{ color: '#10b981', fontWeight: 600 }}>🟢 低风险（0-39分）</span>：顾客活跃度高，满意度良好，正常维护即可</p>
+              <p className="mb-8"><span style={{ color: '#f59e0b', fontWeight: 600 }}>🟡 中风险（40-69分）</span>：顾客出现流失倾向，建议两周内联系，推送新款资讯和会员活动</p>
+              <p><span style={{ color: '#ef4444', fontWeight: 600 }}>🔴 高风险（70-100分）</span>：顾客流失风险极高，需紧急回访，提供专属优惠或赠送小礼品</p>
+            </div>
           </div>
         </div>
       )}

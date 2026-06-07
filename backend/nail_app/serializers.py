@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from .models import Technician, Customer, StyleTag, NailDesign, Appointment, NailWork, CustomerPreference
+from .models import (
+    Technician, Customer, StyleTag, NailDesign, Appointment, NailWork,
+    CustomerPreference, ContactRecord, RiskScoreHistory
+)
 
 
 class TechnicianSerializer(serializers.ModelSerializer):
@@ -14,6 +17,8 @@ class TechnicianSerializer(serializers.ModelSerializer):
 class CustomerSerializer(serializers.ModelSerializer):
     works_count = serializers.IntegerField(read_only=True, required=False)
     last_visit = serializers.DateField(read_only=True, required=False)
+    member_level_display = serializers.CharField(source='get_member_level_display', read_only=True)
+    risk_reasons = serializers.JSONField(read_only=True, required=False)
 
     class Meta:
         model = Customer
@@ -70,4 +75,19 @@ class NailWorkSerializer(serializers.ModelSerializer):
 class CustomerPreferenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerPreference
+        fields = '__all__'
+
+
+class ContactRecordSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source='customer.name', read_only=True)
+    contact_type_display = serializers.CharField(source='get_contact_type_display', read_only=True)
+
+    class Meta:
+        model = ContactRecord
+        fields = '__all__'
+
+
+class RiskScoreHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RiskScoreHistory
         fields = '__all__'

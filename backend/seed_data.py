@@ -1,7 +1,7 @@
 import os
 import sys
 import django
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import random
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'nail_salon.settings')
@@ -9,7 +9,7 @@ django.setup()
 
 from nail_app.models import (
     Technician, Customer, StyleTag, NailDesign,
-    Appointment, NailWork, CustomerPreference
+    Appointment, NailWork, CustomerPreference, ContactRecord
 )
 
 
@@ -33,14 +33,14 @@ def run():
     print(f'  创建了 {len(tech_objs)} 个美甲师')
 
     customers = [
-        {'name': '张小姐', 'phone': '13900139001', 'gender': 'female', 'birthday': date(1995, 5, 10)},
-        {'name': '李女士', 'phone': '13900139002', 'gender': 'female', 'birthday': date(1988, 11, 22)},
-        {'name': '王小姐', 'phone': '13900139003', 'gender': 'female', 'birthday': date(1998, 3, 8)},
-        {'name': '赵女士', 'phone': '13900139004', 'gender': 'female', 'birthday': date(1992, 7, 15)},
-        {'name': '陈小姐', 'phone': '13900139005', 'gender': 'female', 'birthday': date(2000, 9, 30)},
-        {'name': '刘女士', 'phone': '13900139006', 'gender': 'female', 'birthday': date(1985, 2, 14)},
-        {'name': '周小姐', 'phone': '13900139007', 'gender': 'female', 'birthday': date(1996, 12, 25)},
-        {'name': '吴女士', 'phone': '13900139008', 'gender': 'female', 'birthday': date(1990, 6, 18)},
+        {'name': '张小姐', 'phone': '13900139001', 'gender': 'female', 'birthday': date(1995, 5, 10), 'member_level': 'platinum'},
+        {'name': '李女士', 'phone': '13900139002', 'gender': 'female', 'birthday': date(1988, 11, 22), 'member_level': 'gold'},
+        {'name': '王小姐', 'phone': '13900139003', 'gender': 'female', 'birthday': date(1998, 3, 8), 'member_level': 'silver'},
+        {'name': '赵女士', 'phone': '13900139004', 'gender': 'female', 'birthday': date(1992, 7, 15), 'member_level': 'gold'},
+        {'name': '陈小姐', 'phone': '13900139005', 'gender': 'female', 'birthday': date(2000, 9, 30), 'member_level': 'normal'},
+        {'name': '刘女士', 'phone': '13900139006', 'gender': 'female', 'birthday': date(1985, 2, 14), 'member_level': 'silver'},
+        {'name': '周小姐', 'phone': '13900139007', 'gender': 'female', 'birthday': date(1996, 12, 25), 'member_level': 'normal'},
+        {'name': '吴女士', 'phone': '13900139008', 'gender': 'female', 'birthday': date(1990, 6, 18), 'member_level': 'platinum'},
     ]
     cust_objs = []
     for c in customers:
@@ -173,6 +173,28 @@ def run():
         )
 
     print(f'  创建了 {works_count} 个作品存档')
+
+    contact_records = []
+    contact_types = ['phone', 'wechat', 'sms', 'visit']
+    sample_contents = [
+        '告知新款上市，客户表示感兴趣',
+        '提醒会员活动，客户说有空会来',
+        '生日祝福，客户回复感谢',
+        '满意度回访，客户表示很满意',
+        '预约确认电话',
+    ]
+    for i in range(12):
+        cust = random.choice(cust_objs)
+        days_offset = random.randint(-30, 0)
+        contact_records.append(ContactRecord.objects.create(
+            customer=cust,
+            contact_type=random.choice(contact_types),
+            content=random.choice(sample_contents),
+            contacted_at=datetime.now() + timedelta(days=days_offset),
+            operator=random.choice(['小美', '小丽', '小芳'])
+        ))
+    print(f'  创建了 {len(contact_records)} 条联系记录')
+
     print('初始化数据完成！')
 
 
